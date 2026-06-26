@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ستاره سرخ فرهاد | بلیت فروشی</title>
+
+<style>
+body{
+margin:0;
+font-family:tahoma;
+background:#0f172a;
+color:white;
+}
+
+h1{text-align:center}
+
+.stadium{
+max-width:1000px;
+margin:auto;
+background:#111827;
+padding:20px;
+border-radius:20px;
+}
+
+.arena{
+position:relative;
+height:450px;
+background:#1f2937;
+border-radius:40px;
+margin-bottom:20px;
+overflow:hidden;
+}
+
+.pitch{
+position:absolute;
+left:50%;
+top:50%;
+transform:translate(-50%,-50%);
+width:380px;
+height:220px;
+background:#16a34a;
+border-radius:20px;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:26px;
+font-weight:bold;
+}
+
+.zone{
+position:absolute;
+padding:10px 14px;
+border-radius:10px;
+background:#334155;
+cursor:pointer;
+font-size:14px;
+}
+
+.vip{background:#f59e0b;color:black}
+
+.n{top:15px;left:50%;transform:translateX(-50%)}
+.s{bottom:15px;left:50%;transform:translateX(-50%)}
+.w{left:15px;top:50%;transform:translateY(-50%)}
+.e{right:15px;top:50%;transform:translateY(-50%)}
+
+.seats{
+display:grid;
+grid-template-columns:repeat(10,1fr);
+gap:6px;
+margin-top:15px;
+}
+
+.seat{
+background:#475569;
+padding:10px;
+border-radius:8px;
+text-align:center;
+cursor:pointer;
+transition:.2s;
+}
+
+.seat:hover{transform:scale(1.1)}
+
+.selected{background:#dc2626}
+
+.reserved{
+background:#111;
+color:#666;
+pointer-events:none;
+}
+
+input,button{
+width:100%;
+padding:12px;
+margin-top:8px;
+border-radius:10px;
+border:none;
+}
+
+button{
+background:#dc2626;
+color:white;
+cursor:pointer;
+}
+
+#ticket{
+display:none;
+background:white;
+color:black;
+padding:15px;
+margin-top:20px;
+border-radius:15px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>⭐ ستاره سرخ فرهاد ⭐</h1>
+
+<div class="stadium">
+
+<div class="arena">
+
+<div class="zone n" onclick="openZone('N',80000)">جایگاه شمال</div>
+<div class="zone s" onclick="openZone('S',80000)">جایگاه جنوب</div>
+<div class="zone w vip" onclick="openZone('VW',150000)">VIP غرب</div>
+<div class="zone e vip" onclick="openZone('VE',150000)">VIP شرق</div>
+
+<div class="pitch">⚽ زمین مسابقه ⚽</div>
+
+</div>
+
+<h3>انتخاب صندلی</h3>
+<div class="seats" id="seats"></div>
+
+<input id="name" placeholder="نام و نام خانوادگی">
+<input id="phone" placeholder="شماره تلفن">
+<input id="discount" placeholder="کد تخفیف">
+
+<button onclick="buy()">ثبت بلیت</button>
+
+<div id="ticket"></div>
+
+</div>
+
+<script>
+
+// 🔴 API های Sheety تو
+const API_TICKETS = "https://api.sheety.co/3c3bb5c6b72b999bf25d23f4a3c4b815/staresorkh/sheet1";
+const API_DISCOUNT = "https://api.sheety.co/3c3bb5c6b72b999bf25d23f4a3c4b815/staresorkh/sheet2";
+const API_SEATS = "https://api.sheety.co/3c3bb5c6b72b999bf25d23f4a3c4b815/staresorkh/sheet3";
+
+let selected = [];
+let reserved = [];
+let currentZone = "N";
+
+// گرفتن صندلی‌های رزروشده از شیت
+async function loadReserved(){
+try{
+const res = await fetch(API_SEATS);
+const data = await res.json();
+reserved = data.sheet3.map(x => x["صندلی"]);
+}catch(e){
+console.log("error loading seats");
+}
+}
+loadReserved();
+
+function openZone(prefix, price){
+
+currentZone = prefix;
+
+document.getElementById("seats").innerHTML = "";
+
+for(let i=1;i<=60;i++){
+
+let code = prefix + i;
+
+let div = document.createElement("div");
+
+div.className = "seat";
+
+div.innerText = code;
+
+if(reserved.includes(code)){
+div.classList.add("reserved");
+}
+
+div.onclick = () => {
+
+if(div.classList.contains("reserved")) return;
+
+div.classList.toggle("selected");
+
+if(selected.includes(code)){
+selected = selected.filter(x => x !== code);
+}else{
+selected.push(code);
+}
+
+};
+
+document.getElementById("seats").appendChild(div);
+
+}
+
+}
+
+async function buy(){
+
+let name = document.getElementById("name").value;
+let phone = document.getElementById("phone").value;
+let discount = document.getElementById("discount").value;
+
+if(selected.length === 0){
+alert("صندلی انتخاب کن");
+return;
+}
+
+// گرفتن تخفیف از شیت
+let total = selected.length * 80000;
+
+try{
+
+const d = await fetch(API_DISCOUNT);
+const json = await d.json();
+
+const found = json.sheet2.find(x => x["کد"] === discount && x["فعال"] == true);
+
+if(found){
+total = total - (total * found["درصد تخفیف"] / 100);
+}
+
+}catch(e){}
+
+// ثبت در شیت
+await fetch(API_TICKETS,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+sheet1:{
+"نام":name,
+"شماره تلفن":phone,
+"جایگاه":currentZone,
+"صندلی‌ها":selected.join(","),
+"تعداد بلیت":selected.length,
+"مبلغ":total,
+"کد تخفیف":discount,
+"وضعیت":"رزرو شده",
+"زمان ثبت":new Date().toLocaleString()
+}
+})
+});
+
+// ثبت صندلی‌ها
+for(let s of selected){
+await fetch(API_SEATS,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+sheet3:{
+"صندلی":s
+}
+})
+});
+}
+
+document.getElementById("ticket").style.display = "block";
+
+let ticketNo="SSF-"+Date.now();
+
+document.getElementById("ticket").innerHTML=`
+
+<div style="
+max-width:700px;
+margin:auto;
+background:linear-gradient(135deg,#d90429,#7f0000);
+border-radius:20px;
+overflow:hidden;
+color:white;
+font-family:tahoma;
+box-shadow:0 0 25px rgba(0,0,0,.4);
+">
+
+<div style="padding:18px;border-bottom:2px dashed rgba(255,255,255,.4)">
+<h2 style="margin:0">⭐ ستاره سرخ فرهاد ⭐</h2>
+<div>کمپ تمرینی شماره ۱ پارک لاله</div>
+</div>
+
+<div style="display:flex;justify-content:space-between;padding:20px;gap:20px;flex-wrap:wrap;">
+
+<div>
+
+<p><b>شماره بلیت</b></p>
+<h2>${ticketNo}</h2>
+
+<p><b>نام</b></p>
+<h3>${name}</h3>
+
+<p><b>شماره تلفن</b></p>
+${phone}
+
+</div>
+
+<div>
+
+<p><b>صندلی</b></p>
+<h2>${selected.join(" , ")}</h2>
+
+<p><b>جایگاه</b></p>
+${currentZone}
+
+<p><b>مبلغ</b></p>
+${total.toLocaleString()} تومان
+
+</div>
+
+</div>
+
+<div style="
+background:white;
+color:black;
+padding:15px;
+text-align:center;
+">
+
+<div style="
+font-size:32px;
+font-weight:bold;
+letter-spacing:5px;
+">
+||||||||||||||||||||||
+</div>
+
+<p>STAR SORKH FARHAD</p>
+
+<button onclick="window.print()" style="
+background:#d90429;
+color:white;
+padding:12px 25px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+">
+🖨 چاپ بلیت
+</button>
+
+</div>
+
+</div>
+
+`;
+
+alert("بلیط با موفقیت ثبت شد!");
+
+selected = [];
+}
+
+</script>
+
+</body>
+</html>
